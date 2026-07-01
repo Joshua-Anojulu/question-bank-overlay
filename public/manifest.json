@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Question Bank Overlay",
+  "description": "Private progress tracking and notes for the College Board Question Bank.",
+  "version": "0.1.0",
+  "permissions": ["storage", "identity"],
+  "host_permissions": [
+    "https://satsuitequestionbank.collegeboard.org/*",
+    "https://*.supabase.co/*"
+  ],
+  "background": { "service_worker": "assets/background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://satsuitequestionbank.collegeboard.org/*"],
+      "js": ["assets/content.js"],
+      "css": ["assets/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Question Bank Overlay" }
+}
