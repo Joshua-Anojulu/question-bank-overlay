@@ -1,7 +1,8 @@
 import { validateNote } from '../shared/noteValidation';
 import type { QuestionMetadata, QuestionNote, QuestionProgress, StudyStatus, SyncState } from '../shared/types';
 import { detectQuestion } from './questionDetector';
-import { createInitialProgress, updateProgressStatus } from './progressModel';
+import { detectRevealedAnswer, gradeAnswer, type AnswerType, type RevealedAnswer } from './answerDetector';
+import { createInitialProgress, recordAnswer, updateProgressStatus } from './progressModel';
 
 type ProgressResponse = { ok: true; progress: QuestionProgress | null } | { ok: false; error: string };
 type NoteResponse = { ok: true; note: QuestionNote | null } | { ok: false; error: string };
@@ -14,6 +15,7 @@ type OverlayServices = {
   sendMessage: <T>(message: unknown) => Promise<T>;
   // Debounce for re-detecting after the host page's DOM changes (SPA navigation).
   redetectDelayMs: number;
+  detectRevealed: (root: Document) => RevealedAnswer | null;
 };
 
 const STATUS_ACTIONS: Array<{ status: StudyStatus; label: string }> = [
@@ -31,6 +33,7 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     now: () => new Date().toISOString(),
     sendMessage: <T>(message: unknown) => chrome.runtime.sendMessage(message) as Promise<T>,
     redetectDelayMs: 500,
+    detectRevealed: detectRevealedAnswer,
     ...overrides
   };
 
@@ -42,6 +45,10 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
   let lastDetectedKey: string | null = null;
   let loadToken = 0;
   let redetectTimer: ReturnType<typeof setTimeout> | undefined;
+  let answerMode: AnswerType = 'mc';
+  let pendingAnswer: string | null = null;
+  let graded = false;
+  let collapsed = false;
 
   const ready = loadQuestionState();
 
@@ -60,6 +67,11 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     const detected = await services.detect(services.document);
     if ((detected?.questionKey ?? null) !== lastDetectedKey) {
       await loadQuestionState();
+      return;
+    }
+    if (pendingAnswer !== null && !graded && answerMode === 'mc') {
+      const revealed = services.detectRevealed(services.document);
+      if (revealed) await applyGrade(gradeAnswer(pendingAnswer, revealed, 'mc'));
     }
   }
 
@@ -69,6 +81,9 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     metadata = await services.detect(services.document);
     if (token !== loadToken) return;
     lastDetectedKey = metadata?.questionKey ?? null;
+    pendingAnswer = null;
+    graded = false;
+    answerMode = 'mc';
 
     if (!metadata) {
       progress = null;
@@ -145,6 +160,30 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     renderPanel();
   }
 
+  async function selectAnswer(value: string) {
+    if (!progress) return;
+    pendingAnswer = value;
+    graded = false;
+    progress = { ...progress, selectedAnswer: value, answeredAt: services.now(), updatedAt: services.now() };
+    syncState = 'saving';
+    renderPanel();
+    const response = await services.sendMessage<SaveResponse>({ type: 'progress:save', progress });
+    syncState = response.ok ? 'saved' : 'sync-delayed';
+    renderPanel();
+  }
+
+  async function applyGrade(isCorrect: boolean) {
+    if (!progress || pendingAnswer === null) return;
+    graded = true;
+    progress = recordAnswer(progress, { selectedAnswer: pendingAnswer, type: answerMode, isCorrect }, services.now());
+    syncState = 'saving';
+    renderPanel();
+    const response = await services.sendMessage<SaveResponse>({ type: 'progress:save', progress });
+    syncState = response.ok ? 'saved' : 'sync-delayed';
+    message = isCorrect ? 'Correct' : 'Incorrect';
+    renderPanel();
+  }
+
   function renderMessage(text: string) {
     const panel = createElement('aside', 'qbo-panel');
     panel.setAttribute('aria-live', 'polite');
@@ -161,6 +200,19 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
 
     const panel = createElement('aside', 'qbo-panel');
     panel.setAttribute('aria-label', 'Question Bank Overlay');
+
+    const collapse = appendTextElement(panel, 'button', collapsed ? '+' : '–');
+    collapse.type = 'button';
+    collapse.dataset.collapse = 'true';
+    collapse.className = 'qbo-collapse';
+    collapse.addEventListener('click', () => {
+      collapsed = !collapsed;
+      renderPanel();
+    });
+    if (collapsed) {
+      container.replaceChildren(panel);
+      return;
+    }
 
     const header = createElement('header', 'qbo-header');
     const titleBlock = createElement('div');
@@ -199,6 +251,55 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
       button.addEventListener('click', () => void saveStatus(action.status));
     }
     panel.append(actions);
+
+    const answer = createElement('div', 'qbo-answer');
+    answer.setAttribute('aria-label', 'Answer');
+
+    const modeToggle = appendTextElement(answer, 'button', answerMode === 'mc' ? 'Grid-in' : 'Multiple choice');
+    modeToggle.type = 'button';
+    modeToggle.dataset.answerMode = answerMode;
+    modeToggle.addEventListener('click', () => {
+      answerMode = answerMode === 'mc' ? 'grid' : 'mc';
+      pendingAnswer = null;
+      graded = false;
+      renderPanel();
+    });
+
+    if (answerMode === 'mc') {
+      const choices = createElement('div', 'qbo-choices');
+      for (const letter of ['A', 'B', 'C', 'D']) {
+        const button = appendTextElement(choices, 'button', letter);
+        button.type = 'button';
+        button.dataset.answer = letter;
+        if (pendingAnswer === letter) button.classList.add('is-active');
+        button.addEventListener('click', () => void selectAnswer(letter));
+      }
+      answer.append(choices);
+    } else {
+      const input = createElement('input', 'qbo-grid-input');
+      input.type = 'text';
+      input.value = pendingAnswer ?? '';
+      const submit = appendTextElement(answer, 'button', 'Submit');
+      submit.type = 'button';
+      submit.dataset.gridSubmit = 'true';
+      submit.addEventListener('click', () => void selectAnswer(input.value.trim()));
+      answer.append(input);
+      answer.append(submit);
+    }
+
+    if (pendingAnswer !== null && !graded) {
+      const selfMark = createElement('div', 'qbo-selfmark');
+      appendTextElement(selfMark, 'span', 'Reveal the answer, then confirm:');
+      for (const mark of [['correct', 'Correct'], ['incorrect', 'Incorrect']] as const) {
+        const button = appendTextElement(selfMark, 'button', mark[1]);
+        button.type = 'button';
+        button.dataset.selfmark = mark[0];
+        button.addEventListener('click', () => void applyGrade(mark[0] === 'correct'));
+      }
+      answer.append(selfMark);
+    }
+
+    panel.append(answer);
 
     const label = createElement('label', 'qbo-note');
     label.append(document.createTextNode('Private note'));

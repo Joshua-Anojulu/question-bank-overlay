@@ -135,3 +135,13 @@
     width: 100%;
   }
 }
+
+.qbo-collapse { position: absolute; top: 8px; right: 8px; border: none; background: transparent; font-size: 16px; cursor: pointer; }
+.qbo-panel { position: relative; }
+.qbo-answer { display: grid; gap: 6px; margin: 10px 0; }
+.qbo-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.qbo-choices button, .qbo-answer button { min-height: 32px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa; cursor: pointer; }
+.qbo-choices button.is-active { background: #0969da; color: #fff; }
+.qbo-grid-input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #d0d7de; border-radius: 6px; }
+.qbo-selfmark { display: grid; gap: 6px; }
+.qbo-metadata { margin: 8px 0; }

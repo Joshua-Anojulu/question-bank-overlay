@@ -100,4 +100,68 @@ describe('mountOverlay', () => {
       })
     });
   });
+
+  it('auto-grades a multiple-choice answer when the correct answer is revealed', async () => {
+    const host = document.createElement('div');
+    const sendMessage = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === 'progress:get') return { ok: true, progress: null };
+      if (msg.type === 'note:get') return { ok: true, note: null };
+      return { ok: true };
+    });
+    let revealed: { letter?: string; value?: string } | null = null;
+
+    const controller = mountOverlay(host, {
+      detect: vi.fn().mockResolvedValue(metadata),
+      detectRevealed: () => revealed,
+      sendMessage: sendMessage as never,
+      now: () => '2026-07-02T10:05:00.000Z',
+      redetectDelayMs: 0
+    });
+    await controller.ready;
+
+    host.querySelector<HTMLButtonElement>('button[data-answer="C"]')?.click();
+    await Promise.resolve();
+
+    revealed = { letter: 'B' };
+    document.body.appendChild(document.createElement('div'));
+    await waitFor(() => sendMessage.mock.calls.some((c: any) => c[0]?.type === 'progress:save' && c[0]?.progress?.status === 'missed'));
+
+    const lastSave = sendMessage.mock.calls.map((c) => c[0]).filter((m: any) => m.type === 'progress:save').at(-1);
+    expect(lastSave).toMatchObject({ type: 'progress:save', progress: expect.objectContaining({ selectedAnswer: 'C', status: 'missed' }) });
+
+    controller.destroy();
+  });
+
+  it('lets the user self-mark a grid-in answer', async () => {
+    const host = document.createElement('div');
+    const sendMessage = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === 'progress:get') return { ok: true, progress: null };
+      if (msg.type === 'note:get') return { ok: true, note: null };
+      return { ok: true };
+    });
+
+    const controller = mountOverlay(host, {
+      detect: vi.fn().mockResolvedValue(metadata),
+      detectRevealed: () => null,
+      sendMessage: sendMessage as never,
+      now: () => '2026-07-02T10:05:00.000Z',
+      redetectDelayMs: 0
+    });
+    await controller.ready;
+
+    host.querySelector<HTMLButtonElement>('button[data-answer-mode]')?.click();
+    await Promise.resolve();
+    const input = host.querySelector<HTMLInputElement>('input.qbo-grid-input');
+    if (input) input.value = '0.5';
+    host.querySelector<HTMLButtonElement>('button[data-grid-submit]')?.click();
+    await Promise.resolve();
+
+    host.querySelector<HTMLButtonElement>('button[data-selfmark="correct"]')?.click();
+    await waitFor(() => sendMessage.mock.calls.some((c: any) => c[0]?.type === 'progress:save' && c[0]?.progress?.status === 'correct'));
+
+    const lastSave = sendMessage.mock.calls.map((c) => c[0]).filter((m: any) => m.type === 'progress:save').at(-1);
+    expect(lastSave).toMatchObject({ type: 'progress:save', progress: expect.objectContaining({ selectedAnswer: '0.5', status: 'correct' }) });
+
+    controller.destroy();
+  });
 });
