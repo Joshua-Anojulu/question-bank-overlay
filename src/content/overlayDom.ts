@@ -69,9 +69,9 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
       await loadQuestionState();
       return;
     }
-    if (pendingAnswer !== null && !graded && answerMode === 'mc') {
+    if (pendingAnswer !== null && !graded) {
       const revealed = services.detectRevealed(services.document);
-      if (revealed) await applyGrade(gradeAnswer(pendingAnswer, revealed, 'mc'));
+      if (revealed) await applyGrade(gradeAnswer(pendingAnswer, revealed, answerMode));
     }
   }
 
@@ -107,6 +107,9 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     progress = progressResponse.ok && progressResponse.progress
       ? progressResponse.progress
       : createInitialProgress(metadata, services.now());
+    pendingAnswer = progress.selectedAnswer ?? null;
+    graded = progress.lastResult === 'correct' || progress.lastResult === 'missed';
+    answerMode = pendingAnswer && !/^[A-D]$/i.test(pendingAnswer) ? 'grid' : 'mc';
     note = noteResponse.ok && noteResponse.note ? noteResponse.note.note : '';
     message = progressResponse.ok && noteResponse.ok ? '' : 'Local state could not be loaded.';
 
@@ -161,7 +164,7 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
   }
 
   async function selectAnswer(value: string) {
-    if (!progress) return;
+    if (!progress || !value) return;
     pendingAnswer = value;
     graded = false;
     progress = { ...progress, selectedAnswer: value, answeredAt: services.now(), updatedAt: services.now() };
@@ -287,7 +290,7 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
       answer.append(submit);
     }
 
-    if (pendingAnswer !== null && !graded) {
+    if (pendingAnswer !== null && !graded && answerMode === 'grid') {
       const selfMark = createElement('div', 'qbo-selfmark');
       appendTextElement(selfMark, 'span', 'Reveal the answer, then confirm:');
       for (const mark of [['correct', 'Correct'], ['incorrect', 'Incorrect']] as const) {

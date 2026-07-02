@@ -12,6 +12,11 @@ describe('detectRevealedAnswer', () => {
     expect(detectRevealedAnswer(document)).toEqual({ value: '0.5' });
   });
 
+  it('reads a leading-dot grid-in value', () => {
+    document.body.innerHTML = `<div>Correct Answer: .5</div>`;
+    expect(detectRevealedAnswer(document)).toEqual({ value: '.5' });
+  });
+
   it('returns null when no correct answer is revealed', () => {
     document.body.innerHTML = `<div>Question ID: ac472881</div>`;
     expect(detectRevealedAnswer(document)).toBeNull();

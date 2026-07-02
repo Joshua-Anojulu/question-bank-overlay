@@ -12,7 +12,7 @@ export function detectRevealedAnswer(root: Document): RevealedAnswer | null {
   if (letter) return { letter };
 
   // Grid-in: only accept a short, answer-shaped token (math images yield nothing).
-  const value = text.match(/Correct Answer:\s*([0-9]+(?:\.[0-9]+)?(?:\/[0-9]+)?)/)?.[1];
+  const value = text.match(/Correct Answer:\s*(\d+\/\d+|\.\d+|\d+(?:\.\d+)?)/)?.[1];
   if (value) return { value };
 
   return null;

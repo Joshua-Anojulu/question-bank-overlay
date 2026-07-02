@@ -132,6 +132,39 @@ describe('mountOverlay', () => {
     controller.destroy();
   });
 
+  it('restores a previously answered multiple-choice selection on reload', async () => {
+    const host = document.createElement('div');
+    const storedProgress = {
+      ...metadata,
+      status: 'correct',
+      lastResult: 'correct',
+      attemptCount: 1,
+      firstSeenAt: '2026-07-02T10:00:00.000Z',
+      lastSeenAt: '2026-07-02T10:05:00.000Z',
+      updatedAt: '2026-07-02T10:05:00.000Z',
+      selectedAnswer: 'B',
+      answeredAt: '2026-07-02T10:05:00.000Z'
+    };
+    const sendMessage = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === 'progress:get') return { ok: true, progress: storedProgress };
+      if (msg.type === 'note:get') return { ok: true, note: null };
+      return { ok: true };
+    });
+
+    const controller = mountOverlay(host, {
+      detect: vi.fn().mockResolvedValue(metadata),
+      sendMessage: sendMessage as never,
+      now: () => '2026-07-02T10:06:00.000Z',
+      redetectDelayMs: 0
+    });
+    await controller.ready;
+
+    expect(host.querySelector('button[data-answer="B"]')?.classList.contains('is-active')).toBe(true);
+    expect(host.querySelector('button[data-selfmark="correct"]')).toBeNull();
+
+    controller.destroy();
+  });
+
   it('lets the user self-mark a grid-in answer', async () => {
     const host = document.createElement('div');
     const sendMessage = vi.fn(async (msg: { type: string }) => {
