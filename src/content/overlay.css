@@ -1,0 +1,137 @@
+#qbo-overlay-root {
+  all: initial;
+  position: fixed;
+  top: 88px;
+  right: 16px;
+  z-index: 2147483647;
+}
+
+#qbo-overlay-root * {
+  box-sizing: border-box;
+}
+
+.qbo-panel {
+  width: min(340px, calc(100vw - 32px));
+  border: 1px solid #c8d3df;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(26 42 58 / 18%);
+  color: #17212b;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 14px;
+}
+
+.qbo-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.qbo-header h1 {
+  font-size: 16px;
+  line-height: 1.2;
+  margin: 0 0 2px;
+}
+
+.qbo-header p,
+.qbo-panel p {
+  margin: 0;
+}
+
+.qbo-status {
+  background: #e8f1ff;
+  border-radius: 999px;
+  color: #184c93;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  text-transform: capitalize;
+}
+
+.qbo-metadata {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.qbo-metadata div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 72px 1fr;
+}
+
+.qbo-metadata dt {
+  color: #536271;
+  font-weight: 700;
+}
+
+.qbo-metadata dd {
+  margin: 0;
+}
+
+.qbo-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 12px;
+}
+
+.qbo-actions button {
+  background: #f5f7fa;
+  border: 1px solid #c8d3df;
+  border-radius: 6px;
+  color: #17212b;
+  cursor: pointer;
+  font: inherit;
+  min-height: 34px;
+}
+
+.qbo-actions button:hover,
+.qbo-actions button.is-active {
+  background: #184c93;
+  border-color: #184c93;
+  color: #ffffff;
+}
+
+.qbo-note {
+  color: #536271;
+  display: grid;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.qbo-note textarea {
+  border: 1px solid #c8d3df;
+  border-radius: 6px;
+  color: #17212b;
+  font: inherit;
+  min-height: 104px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.qbo-footer {
+  color: #536271;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+  min-height: 20px;
+}
+
+@media (max-width: 520px) {
+  #qbo-overlay-root {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+  }
+
+  .qbo-panel {
+    width: 100%;
+  }
+}

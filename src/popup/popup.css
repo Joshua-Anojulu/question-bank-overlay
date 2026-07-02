@@ -1,0 +1,63 @@
+body {
+  margin: 0;
+}
+
+.qbo-popup {
+  background: #ffffff;
+  color: #17212b;
+  font-family: Arial, sans-serif;
+  min-height: 220px;
+  padding: 16px;
+  width: 320px;
+}
+
+.qbo-popup h1 {
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0 0 14px;
+}
+
+.qbo-popup-section,
+.qbo-popup form {
+  display: grid;
+  gap: 10px;
+}
+
+.qbo-popup label {
+  color: #536271;
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 4px;
+}
+
+.qbo-popup input {
+  border: 1px solid #c8d3df;
+  border-radius: 6px;
+  color: #17212b;
+  font: inherit;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
+.qbo-popup button {
+  background: #184c93;
+  border: 1px solid #184c93;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 36px;
+}
+
+.qbo-popup button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.qbo-popup-message {
+  color: #536271;
+  margin: 12px 0 0;
+  min-height: 20px;
+}
