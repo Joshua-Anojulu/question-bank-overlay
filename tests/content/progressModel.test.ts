@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialProgress, updateProgressStatus } from '../../src/content/progressModel';
+import { createInitialProgress, recordAnswer, updateProgressStatus } from '../../src/content/progressModel';
 import type { QuestionMetadata } from '../../src/shared/types';
 
 const metadata: QuestionMetadata = {
@@ -50,5 +50,33 @@ describe('progress model', () => {
       lastResult: null,
       attemptCount: 1
     });
+  });
+
+  it('records a correct answer as correct and increments attempts', () => {
+    const base = createInitialProgress(
+      { source: 'college-board-question-bank', questionKey: 'ac472881', questionKeyMethod: 'visible-id', section: 'Math', domain: 'Algebra', skill: null, difficulty: 'Hard' },
+      '2026-07-02T10:00:00.000Z'
+    );
+
+    const result = recordAnswer(base, { selectedAnswer: 'B', type: 'mc', isCorrect: true }, '2026-07-02T10:05:00.000Z');
+
+    expect(result).toMatchObject({
+      status: 'correct',
+      lastResult: 'correct',
+      attemptCount: 1,
+      selectedAnswer: 'B',
+      answeredAt: '2026-07-02T10:05:00.000Z'
+    });
+  });
+
+  it('records an incorrect answer as missed', () => {
+    const base = createInitialProgress(
+      { source: 'college-board-question-bank', questionKey: 'ac472881', questionKeyMethod: 'visible-id', section: 'Math', domain: 'Algebra', skill: null, difficulty: 'Hard' },
+      '2026-07-02T10:00:00.000Z'
+    );
+
+    const result = recordAnswer(base, { selectedAnswer: 'A', type: 'mc', isCorrect: false }, '2026-07-02T10:05:00.000Z');
+
+    expect(result).toMatchObject({ status: 'missed', lastResult: 'missed', selectedAnswer: 'A' });
   });
 });
