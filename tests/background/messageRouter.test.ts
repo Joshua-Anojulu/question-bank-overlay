@@ -10,7 +10,7 @@ vi.mock('../../src/sync/syncQueue', () => ({
 
 describe('extension manifest', () => {
   it('uses narrow College Board host permissions', () => {
-    expect(manifest.host_permissions).toContain('https://satsuitequestionbank.collegeboard.org/*');
+    expect(manifest.host_permissions).toContain('https://satsuiteeducatorquestionbank.collegeboard.org/*');
     expect(manifest.host_permissions).not.toContain('*://*.collegeboard.org/*');
   });
 

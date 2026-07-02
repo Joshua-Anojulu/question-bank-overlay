@@ -2,66 +2,93 @@ import type { QuestionMetadata } from '../shared/types';
 
 const SOURCE = 'college-board-question-bank' as const;
 const MIN_FINGERPRINT_TEXT_LENGTH = 80;
-const QUESTION_SELECTORS = ['[data-question-id]', '[data-testid*="question" i]', 'article', 'main'];
-const METADATA_LABELS = ['Section', 'Domain', 'Skill', 'Difficulty'];
+const CONTAINER_SELECTORS = ['[data-question-id]', '[data-testid*="question" i]', 'article', 'main'];
+// Real metadata values are short ("Math", "Hard"); the educator filter panel repeats
+// the same labels as long help sentences, so we reject anything over this length.
+const MAX_METADATA_VALUE_LENGTH = 60;
 
 export async function detectQuestion(root: Document): Promise<QuestionMetadata | null> {
-  const container = findQuestionContainer(root);
-  if (!container) return null;
+  const container = findSpecificContainer(root);
 
-  const section = findLabeledValue(container, 'Section');
-  const domain = findLabeledValue(container, 'Domain');
-  const skill = findLabeledValue(container, 'Skill');
-  const difficulty = findLabeledValue(container, 'Difficulty');
-  const visibleId = getVisibleQuestionId(container);
-
+  // 1) Prefer an explicit, visible question id. This works on the student bank
+  //    (data-question-id / "Question ID:" inside an <article>) and on the educator
+  //    bank, which renders as a filter/table page with the id as plain body text.
+  const visibleId = getVisibleQuestionId(container, root);
   if (visibleId) {
     return {
       source: SOURCE,
       questionKey: visibleId,
       questionKeyMethod: 'visible-id',
-      section,
-      domain,
-      skill,
-      difficulty
+      ...extractMetadata(container ?? root.body)
     };
   }
 
-  const normalizedText = normalizeVisibleText(container.textContent ?? '');
-  if (normalizedText.length < MIN_FINGERPRINT_TEXT_LENGTH) return null;
+  // 2) Fall back to a local fingerprint of a specific question container only.
+  //    We never fingerprint <body>, so list/filter pages don't mint junk keys.
+  if (container) {
+    const normalizedText = normalizeVisibleText(container.textContent ?? '');
+    if (normalizedText.length >= MIN_FINGERPRINT_TEXT_LENGTH) {
+      return {
+        source: SOURCE,
+        questionKey: `sha256_${await sha256(normalizedText.slice(0, 5000))}`,
+        questionKeyMethod: 'fingerprint',
+        ...extractMetadata(container)
+      };
+    }
+  }
 
-  return {
-    source: SOURCE,
-    questionKey: `sha256_${await sha256(normalizedText.slice(0, 5000))}`,
-    questionKeyMethod: 'fingerprint',
-    section,
-    domain,
-    skill,
-    difficulty
-  };
+  return null;
 }
 
-function findQuestionContainer(root: Document): Element | null {
-  for (const selector of QUESTION_SELECTORS) {
+function findSpecificContainer(root: Document): Element | null {
+  for (const selector of CONTAINER_SELECTORS) {
     const match = root.querySelector(selector);
     if (match && normalizeVisibleText(match.textContent ?? '').length > 0) return match;
   }
   return null;
 }
 
-function getVisibleQuestionId(container: Element): string | null {
-  const dataId = container.getAttribute('data-question-id');
+function getVisibleQuestionId(container: Element | null, root: Document): string | null {
+  const dataId = container?.getAttribute('data-question-id');
   if (dataId?.trim()) return dataId.trim();
 
-  const match = normalizeVisibleText(container.textContent ?? '').match(/Question ID:\s*([A-Za-z0-9_-]+)/i);
+  const scopeText = normalizeVisibleText((container ?? root.body)?.textContent ?? '');
+  const match = scopeText.match(/Question ID:\s*([A-Za-z0-9_-]+)/i);
   return match?.[1] ?? null;
 }
 
-function findLabeledValue(container: Element, label: string): string | null {
-  const text = normalizeVisibleText(container.textContent ?? '');
-  const otherLabels = METADATA_LABELS.filter((candidate) => candidate !== label).join('|');
-  const pattern = new RegExp(`${label}:\\s*(.*?)(?=(?:${otherLabels}):|$)`, 'i');
-  return text.match(pattern)?.[1]?.trim() || null;
+function extractMetadata(
+  scope: Element | null
+): Pick<QuestionMetadata, 'section' | 'domain' | 'skill' | 'difficulty'> {
+  return {
+    section: findLabeledValue(scope, 'Section'),
+    domain: findLabeledValue(scope, 'Domain'),
+    skill: findLabeledValue(scope, 'Skill'),
+    difficulty: findLabeledValue(scope, 'Difficulty')
+  };
+}
+
+// Read "Label: value" from the smallest element whose own text is exactly that pair,
+// preferring the shortest value. Reading per-element keeps neighboring nodes (the
+// question prompt, "Question ID:", the filter help sentences) from leaking into the value.
+function findLabeledValue(scope: Element | null, label: string): string | null {
+  if (!scope) return null;
+
+  const pattern = new RegExp(`^${label}:\\s*(.+)$`, 'i');
+  let best: string | null = null;
+
+  for (const element of [scope, ...scope.querySelectorAll('*')]) {
+    const text = normalizeVisibleText(element.textContent ?? '');
+    const match = text.match(pattern);
+    if (!match) continue;
+
+    // Drop a trailing standalone number (e.g. a result count next to "Difficulty: Hard 12").
+    const value = match[1].trim().replace(/\s+\d+$/, '');
+    if (!value || value.length > MAX_METADATA_VALUE_LENGTH) continue;
+    if (best === null || value.length < best.length) best = value;
+  }
+
+  return best;
 }
 
 function normalizeVisibleText(text: string): string {

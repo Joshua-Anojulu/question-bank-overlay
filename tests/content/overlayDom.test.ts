@@ -2,6 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { mountOverlay } from '../../src/content/overlayDom';
 import type { QuestionMetadata, QuestionProgress } from '../../src/shared/types';
 
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('waitFor timed out');
+}
+
 const metadata: QuestionMetadata = {
   source: 'college-board-question-bank',
   questionKey: 'sha256_abc',
@@ -34,6 +43,35 @@ describe('mountOverlay', () => {
     await controller.ready;
 
     expect(host.textContent).toContain('Question not recognized on this page.');
+  });
+
+  it('re-detects when the SPA opens a question after the panel has mounted', async () => {
+    const host = document.createElement('div');
+    const detect = vi.fn()
+      .mockResolvedValueOnce(null) // nothing open when the panel first mounts
+      .mockResolvedValue(metadata); // a question is opened afterwards
+    const sendMessage = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === 'progress:get') return { ok: true, progress: null };
+      if (msg.type === 'note:get') return { ok: true, note: null };
+      return { ok: true };
+    });
+
+    const controller = mountOverlay(host, {
+      detect,
+      sendMessage: sendMessage as never,
+      now: () => '2026-07-01T10:00:00.000Z',
+      redetectDelayMs: 0
+    });
+    await controller.ready;
+    expect(host.textContent).toContain('Question not recognized on this page.');
+
+    // Simulate the SPA rendering a question into the page.
+    document.body.appendChild(document.createElement('div'));
+
+    await waitFor(() => host.querySelector('button[data-status="correct"]') !== null);
+    expect(host.textContent).toContain('Math');
+
+    controller.destroy();
   });
 
   it('saves a status update through the background router', async () => {

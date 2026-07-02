@@ -12,6 +12,8 @@ type OverlayServices = {
   document: Document;
   now: () => string;
   sendMessage: <T>(message: unknown) => Promise<T>;
+  // Debounce for re-detecting after the host page's DOM changes (SPA navigation).
+  redetectDelayMs: number;
 };
 
 const STATUS_ACTIONS: Array<{ status: StudyStatus; label: string }> = [
@@ -28,6 +30,7 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
     document,
     now: () => new Date().toISOString(),
     sendMessage: <T>(message: unknown) => chrome.runtime.sendMessage(message) as Promise<T>,
+    redetectDelayMs: 500,
     ...overrides
   };
 
@@ -36,12 +39,36 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
   let note = '';
   let syncState: SyncState = 'saved';
   let message = '';
+  let lastDetectedKey: string | null = null;
+  let loadToken = 0;
+  let redetectTimer: ReturnType<typeof setTimeout> | undefined;
 
   const ready = loadQuestionState();
 
+  // The question banks are single-page apps: questions open/switch without a full
+  // page load, so re-detect (debounced) whenever the page DOM changes. The overlay's
+  // own root lives outside <body>, so our renders don't retrigger this.
+  const observer = new MutationObserver(() => {
+    clearTimeout(redetectTimer);
+    redetectTimer = setTimeout(() => void redetect(), services.redetectDelayMs);
+  });
+  if (services.document.body) {
+    observer.observe(services.document.body, { childList: true, subtree: true });
+  }
+
+  async function redetect() {
+    const detected = await services.detect(services.document);
+    if ((detected?.questionKey ?? null) !== lastDetectedKey) {
+      await loadQuestionState();
+    }
+  }
+
   async function loadQuestionState() {
+    const token = ++loadToken;
     renderMessage('Loading question state...');
     metadata = await services.detect(services.document);
+    if (token !== loadToken) return;
+    lastDetectedKey = metadata?.questionKey ?? null;
 
     if (!metadata) {
       progress = null;
@@ -60,6 +87,7 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
       source: metadata.source,
       questionKey: metadata.questionKey
     });
+    if (token !== loadToken) return;
 
     progress = progressResponse.ok && progressResponse.progress
       ? progressResponse.progress
@@ -195,7 +223,11 @@ export function mountOverlay(container: HTMLElement, overrides: Partial<OverlayS
 
   return {
     ready,
-    destroy: () => container.replaceChildren()
+    destroy: () => {
+      observer.disconnect();
+      clearTimeout(redetectTimer);
+      container.replaceChildren();
+    }
   };
 }
 

@@ -36,6 +36,47 @@ describe('detectQuestion', () => {
     await expect(detectQuestion(document)).resolves.toBeNull();
   });
 
+  it('detects the open question on the educator bank, which has no main/article container', async () => {
+    // The educator question bank renders as a filter/table page with no <main>,
+    // <article>, or data-question-id; the open question exposes "Question ID: xxxx"
+    // as plain text, and metadata labels appear both as filter help text and values.
+    document.body.innerHTML = `
+      <div>
+        <div>Difficulty: Choose one or more difficulty levels for your questions (easy, medium, or hard).</div>
+        <div>Skill: Choose a skill area within your chosen domain that you want to focus on.</div>
+        <div>Assessment: SAT</div>
+        <div>Section: Math</div>
+        <div>Domain: Algebra</div>
+        <div>Question ID: ac472881</div>
+        <div>Difficulty: Hard</div>
+        <p>Which of the following equations has a graph in the xy-plane... </p>
+      </div>`;
+
+    await expect(detectQuestion(document)).resolves.toMatchObject({
+      questionKey: 'ac472881',
+      questionKeyMethod: 'visible-id',
+      section: 'Math',
+      domain: 'Algebra',
+      difficulty: 'Hard'
+    });
+  });
+
+  it('does not fingerprint the educator list page when no question is open', async () => {
+    // Filter labels present as help text, plenty of body text, but no "Question ID:"
+    // and no question container. Must return null instead of fingerprinting the list.
+    document.body.innerHTML = `
+      <div>
+        <div>Difficulty: Choose one or more difficulty levels for your questions (easy, medium, or hard).</div>
+        <div>Skill: Choose a skill area within your chosen domain that you want to focus on.</div>
+        <div>Assessment: SAT</div>
+        <div>Section: Math</div>
+        <div>Domain: Algebra</div>
+        <table><tr><td>Question one preview</td></tr><tr><td>Question two preview</td></tr></table>
+      </div>`;
+
+    await expect(detectQuestion(document)).resolves.toBeNull();
+  });
+
   it('keeps fingerprints stable across harmless whitespace changes', async () => {
     document.body.innerHTML = `
       <main><article>

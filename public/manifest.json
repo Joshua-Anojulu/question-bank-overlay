@@ -5,13 +5,13 @@
   "version": "0.1.0",
   "permissions": ["storage", "identity"],
   "host_permissions": [
-    "https://satsuitequestionbank.collegeboard.org/*",
+    "https://satsuiteeducatorquestionbank.collegeboard.org/*",
     "https://*.supabase.co/*"
   ],
   "background": { "service_worker": "assets/background.js", "type": "module" },
   "content_scripts": [
     {
-      "matches": ["https://satsuitequestionbank.collegeboard.org/*"],
+      "matches": ["https://satsuiteeducatorquestionbank.collegeboard.org/*"],
       "js": ["assets/content.js"],
       "css": ["assets/content.css"],
       "run_at": "document_idle"
