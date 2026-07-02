@@ -56,3 +56,12 @@
 - Inspect Supabase `question_notes` rows.
 - Confirm notes are private and scoped to the signed-in user.
 - Confirm row-level security blocks another user from reading or writing those rows.
+
+## In-Overlay Answering
+
+- Open a multiple-choice question; click A/B/C/D in the overlay.
+- Reveal the answer on the page; confirm the panel shows Correct/Incorrect and the attempt count increments.
+- Refresh; confirm the selected answer and status persist.
+- Toggle Grid-in, enter a value, Submit, reveal the answer, and self-mark; confirm it saves.
+- Collapse the panel with the header toggle; confirm it no longer overlaps the page difficulty indicator.
+- In Supabase question_progress, confirm selected_answer + answered_at are present and there is no correct-answer/content column.
