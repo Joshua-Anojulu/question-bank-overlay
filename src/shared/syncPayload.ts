@@ -15,7 +15,9 @@ export function toProgressPayload(userId: string, progress: QuestionProgress): P
     attempt_count: progress.attemptCount,
     first_seen_at: progress.firstSeenAt,
     last_seen_at: progress.lastSeenAt,
-    updated_at: progress.updatedAt
+    updated_at: progress.updatedAt,
+    selected_answer: progress.selectedAnswer ?? null,
+    answered_at: progress.answeredAt ?? null
   };
 }
 

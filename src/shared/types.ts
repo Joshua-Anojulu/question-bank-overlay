@@ -21,6 +21,8 @@ export interface QuestionProgress extends QuestionMetadata {
   firstSeenAt: string;
   lastSeenAt: string;
   updatedAt: string;
+  selectedAnswer?: string | null;
+  answeredAt?: string | null;
 }
 
 export interface QuestionNote {
@@ -45,6 +47,8 @@ export interface ProgressPayload {
   first_seen_at: string;
   last_seen_at: string;
   updated_at: string;
+  selected_answer?: string | null;
+  answered_at?: string | null;
 }
 
 export interface NotePayload {

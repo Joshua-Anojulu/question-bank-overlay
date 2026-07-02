@@ -28,6 +28,31 @@ describe('toProgressPayload', () => {
     expect(JSON.stringify(payload)).not.toContain('answerChoices');
     expect(payload).toMatchObject({ user_id: 'user_1', question_key: 'hash_123', status: 'missed' });
   });
+
+  it('maps the user answer and answered timestamp, and never a correct answer key', () => {
+    const progress: QuestionProgress = {
+      source: 'college-board-question-bank',
+      questionKey: 'ac472881',
+      questionKeyMethod: 'visible-id',
+      section: 'Math',
+      domain: 'Algebra',
+      skill: null,
+      difficulty: 'Hard',
+      status: 'missed',
+      lastResult: 'missed',
+      attemptCount: 1,
+      firstSeenAt: '2026-07-02T10:00:00.000Z',
+      lastSeenAt: '2026-07-02T10:05:00.000Z',
+      updatedAt: '2026-07-02T10:05:00.000Z',
+      selectedAnswer: 'C',
+      answeredAt: '2026-07-02T10:05:00.000Z'
+    };
+
+    const payload = toProgressPayload('user_1', progress);
+
+    expect(payload).toMatchObject({ selected_answer: 'C', answered_at: '2026-07-02T10:05:00.000Z' });
+    expect(JSON.stringify(payload)).not.toContain('correct_answer');
+  });
 });
 
 describe('toNotePayload', () => {
